@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AasConnectCore": {
+      "commandName": "Project",
+      "commandLineArgs": "-node NODE0.DAT"
+    }
+  }
+}

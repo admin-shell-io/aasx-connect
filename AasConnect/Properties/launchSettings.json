@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "AasConnectStandard": {
+      "commandName": "Project",
+      "commandLineArgs": "-NODE0.DAT"
+    },
+    "Node0": {
+      "commandName": "Executable",
+      "commandLineArgs": "-node NODE0.DAT"
+    }
+  }
+}

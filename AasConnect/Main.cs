@@ -174,8 +174,11 @@ namespace AasConnect
                         {
                             response.Add(value);
                         }
-                        publishResponse[i] = null;
                         publishResponseChilds[i].Remove(node);
+                        if (publishResponseChilds[i].Count == 0)
+                        {
+                            publishResponse[i] = null;
+                        }
                     }
                 }
             }
@@ -280,7 +283,7 @@ namespace AasConnect
                             node = t2.node;
                             List<string> publish2 = t2.publish;
 
-                            if (node == nodeName)
+                            // if (node == nodeName)
                             {
                                 Console.WriteLine("RECEIVE " + node + " : " + content);
                                 if (childs.Count != 0)

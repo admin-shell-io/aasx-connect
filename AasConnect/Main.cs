@@ -69,8 +69,13 @@ namespace AasConnect
 
             if (node != "")
             {
+                string connected = "";
+                foreach (string value in childs)
+                {
+                    connected += value + " ";
+                }
                 childs.Add(node);
-                Console.WriteLine("Connect " + node);
+                Console.WriteLine("Connect new: " + node + ", already connected: " + connected);
             }
         }
 
@@ -458,7 +463,6 @@ namespace AasConnect
             }
 
             Thread t = new Thread(new ThreadStart(ThreadLoop));
-            t.IsBackground = true;
             t.Start();
 
             Console.WriteLine("Press ENTER to STOPP");
@@ -468,9 +472,11 @@ namespace AasConnect
 
             if (parentDomain != "")
             {
-                var result = httpClient.PostAsync("http://" + parentDomain + "/disconnect", contentJson).Result;
-                string content = ContentToString(result.Content);
+                contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+                httpClient.PostAsync("http://" + parentDomain + "/disconnect", contentJson).Wait();
             }
+
+            rs.Stop();
         }
     }
 }

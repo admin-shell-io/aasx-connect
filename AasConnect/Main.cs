@@ -465,8 +465,22 @@ namespace AasConnect
             Thread t = new Thread(new ThreadStart(ThreadLoop));
             t.Start();
 
-            Console.WriteLine("Press ENTER to STOPP");
-            Console.ReadLine();
+            Console.WriteLine("Press CTRL-C to STOPP");
+            // Console.ReadLine();
+            ManualResetEvent quitEvent = new ManualResetEvent(false);
+            try
+            {
+                Console.CancelKeyPress += (sender, eArgs) =>
+                {
+                    quitEvent.Set();
+                    eArgs.Cancel = true;
+                };
+            }
+            catch
+            {
+            }
+            // wait for timeout or Ctrl-C
+            quitEvent.WaitOne(Timeout.Infinite);
 
             loop = false;
 

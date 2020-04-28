@@ -269,8 +269,17 @@ namespace AasConnect
 
                     publish = JsonConvert.SerializeObject(t, Formatting.Indented);
 
-                    HttpClient httpClient = new HttpClient();
-                    var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json");
+                    HttpClient httpClient;
+                    if (clientHandler != null)
+                    {
+                        httpClient = new HttpClient(clientHandler);
+                    }
+                    else
+                    {
+                        httpClient = new HttpClient();
+                    }
+
+                    var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json"); ;
 
                     var result = httpClient.PostAsync("http://" + parentDomain + "/publish", contentJson).Result;
                     string content = ContentToString(result.Content);
@@ -331,6 +340,9 @@ namespace AasConnect
         public static string nodeName = "";
         public static string domainName = "";
         public static string parentDomain = "";
+        public static WebProxy proxy = null;
+        public static HttpClientHandler clientHandler = null;
+
         public static void Main(string[] args)
         {
             Console.WriteLine(
@@ -346,9 +358,12 @@ namespace AasConnect
             Console.WriteLine("--help for available switches.");
             Console.WriteLine("");
 
+            // AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+
             // default command line options
             bool debugwait = false;
             string nodeFile = "NODE.DAT";
+            string proxyFile = "";
             Boolean help = false;
 
             int i = 0;
@@ -369,6 +384,14 @@ namespace AasConnect
                     debugwait = true;
                     Console.WriteLine(args[i]);
                     i++;
+                    continue;
+                }
+
+                if (x == "-proxy")
+                {
+                    proxyFile = args[i + 1];
+                    Console.WriteLine(args[i] + " " + args[i + 1]);
+                    i += 2;
                     continue;
                 }
 
@@ -400,6 +423,45 @@ namespace AasConnect
                     System.Threading.Thread.Sleep(100);
                 Console.WriteLine("Debugger attached");
             }
+
+            // Proxy
+            string proxyAddress = "";
+            string username = "";
+            string password = "";
+
+            if (proxyFile != "")
+            {
+                try
+                {
+                    using (StreamReader sr = new StreamReader(proxyFile))
+                    {
+                        proxyAddress = sr.ReadLine();
+                        username = sr.ReadLine();
+                        password = sr.ReadLine();
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    Console.WriteLine(proxyFile + " not found!");
+                }
+
+                if (proxyAddress != "")
+                {
+                    proxy = new WebProxy();
+                    Uri newUri = new Uri(proxyAddress);
+                    proxy.Address = newUri;
+                    proxy.Credentials = new NetworkCredential(username, password);
+                    // proxy.BypassProxyOnLocal = true;
+                    Console.WriteLine("Using proxy: " + proxyAddress);
+
+                    clientHandler = new HttpClientHandler
+                    {
+                        Proxy = proxy,
+                        UseProxy = true
+                    };
+                }
+            };
 
             try
             {
@@ -452,7 +514,16 @@ namespace AasConnect
             RestServer rs = new RestServer(serverSettings);
             rs.Start();
 
-            HttpClient httpClient = new HttpClient();
+            HttpClient httpClient;
+            if (clientHandler != null)
+            {
+                httpClient = new HttpClient(clientHandler);
+            }
+            else
+            {
+                httpClient = new HttpClient();
+            }
+
             string payload = "{ \"node\" : \"" + nodeName + "\" }";
             var contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
 

@@ -57,6 +57,7 @@ namespace AasConnect
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
             string node = "";
+            string ret = "ERROR";
 
             try
             {
@@ -76,7 +77,14 @@ namespace AasConnect
                 }
                 childs.Add(node);
                 Console.WriteLine("Connect new: " + node + ", already connected: " + connected);
+
+                ret = "OK";
             }
+
+            context.Response.ContentType = ContentType.TEXT;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = ret.Length;
+            context.Response.SendResponse(ret);
         }
 
         public static void PostDisconnect(IHttpContext context)
@@ -84,6 +92,7 @@ namespace AasConnect
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
             string node = "";
+            string ret = "ERROR";
 
             try
             {
@@ -98,7 +107,14 @@ namespace AasConnect
             {
                 childs.Remove(node);
                 Console.WriteLine("Disonnect " + node);
+
+                ret = "OK";
             }
+
+            context.Response.ContentType = ContentType.TEXT;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = ret.Length;
+            context.Response.SendResponse(ret);
         }
 
         public static List<string>[] publishRequest = new List<string>[100];
@@ -286,6 +302,11 @@ namespace AasConnect
 
                     if (content != "")
                     {
+                        if (content != "")
+                        {
+                            Console.WriteLine(content);
+                        }
+
                         string node = "";
                         string response = "";
 
@@ -529,8 +550,15 @@ namespace AasConnect
 
             if (parentDomain != "")
             {
-                var result = httpClient.PostAsync("http://" + parentDomain + "/connect", contentJson).Result;
-                string content = ContentToString(result.Content);
+                try
+                {
+                    var result = httpClient.PostAsync("http://" + parentDomain + "/connect", contentJson).Result;
+                    string content = ContentToString(result.Content);
+                }
+                catch
+                {
+                    Console.WriteLine("Can not /connect");
+                }
             }
 
             Thread t = new Thread(new ThreadStart(ThreadLoop));
@@ -557,8 +585,16 @@ namespace AasConnect
 
             if (parentDomain != "")
             {
-                contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
-                httpClient.PostAsync("http://" + parentDomain + "/disconnect", contentJson).Wait();
+                try
+                {
+                    contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+                    httpClient.PostAsync("http://" + parentDomain + "/disconnect", contentJson).Wait();
+                }
+                catch
+                {
+                    Console.WriteLine("Can not /disconnect. Press ENTER");
+                    Console.ReadLine();
+                }
             }
 
             rs.Stop();

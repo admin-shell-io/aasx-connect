@@ -19,6 +19,7 @@ using System.Linq;
 using System.Reflection;
 using System.Net.Http;
 using System.Threading;
+using System.Runtime.InteropServices;
 // using Jose;
 
 namespace AasConnect
@@ -117,9 +118,9 @@ namespace AasConnect
             context.Response.SendResponse(ret);
         }
 
-        public static List<string>[] publishRequest = new List<string>[100];
-        public static List<string>[] publishResponse = new List<string>[100];
-        public static List<string>[] publishResponseChilds = new List<string>[100];
+        public static List<string>[] publishRequest = new List<string>[1000];
+        public static List<string>[] publishResponse = new List<string>[1000];
+        public static List<string>[] publishResponseChilds = new List<string>[1000];
 
         public class transmit
         {
@@ -379,7 +380,10 @@ namespace AasConnect
             Console.WriteLine("--help for available switches.");
             Console.WriteLine("");
 
-            // AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
+            }
 
             // default command line options
             bool debugwait = false;

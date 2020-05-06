@@ -36,6 +36,13 @@ namespace AasConnect
                 return context;
             }
 
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/connectDown(/|)$")]
+            public IHttpContext EvalPostConnectDown(IHttpContext context)
+            {
+                PostConnectDown(context);
+                return context;
+            }
+
             [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/disconnect(/|)$")]
             public IHttpContext EvalPostDisconnect(IHttpContext context)
             {
@@ -43,43 +50,77 @@ namespace AasConnect
                 return context;
             }
 
-            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/publish(/|)$")]
-            public IHttpContext EvalPostPublish(IHttpContext context)
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/publishUp(/|)$")]
+            public IHttpContext EvalPostPublishUp(IHttpContext context)
             {
-                PostPublish(context);
+                PostPublishUp(context);
+                return context;
+            }
+
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/publishDown(/|)$")]
+            public IHttpContext EvalPostPublishDown(IHttpContext context)
+            {
+                PostPublishDown(context);
                 return context;
             }
         }
-
-        static List<string> childs = new List<string> { };
 
         public static void PostConnect(IHttpContext context)
         {
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
-            string node = "";
+            string source = "";
             string ret = "ERROR";
 
             try
             {
-                node = parsed.SelectToken("node").Value<string>();
+                source = parsed.SelectToken("source").Value<string>();
             }
             catch
             {
 
             }
 
-            if (node != "")
+            if (source != "")
             {
                 string connected = "";
                 foreach (string value in childs)
                 {
                     connected += value + " ";
                 }
-                childs.Add(node);
-                Console.WriteLine("Connect new: " + node + ", already connected: " + connected);
+                childs.Add(source);
+                Console.WriteLine(countWriteLine++ + " Connect new: " + source + ", already connected: " + connected);
 
                 ret = "OK";
+            }
+
+            context.Response.ContentType = ContentType.TEXT;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = ret.Length;
+            context.Response.SendResponse(ret);
+        }
+
+        public static void PostConnectDown(IHttpContext context)
+        {
+            string payload = context.Request.Payload;
+            var parsed = JObject.Parse(payload);
+            string source = "";
+            string ret = "**ERROR**";
+
+            try
+            {
+                source = parsed.SelectToken("source").Value<string>();
+            }
+            catch
+            {
+
+            }
+
+            if (source != "")
+            {
+                Console.WriteLine(countWriteLine++ + " ConnectDown: " + source);
+
+                ret = sourceName;
             }
 
             context.Response.ContentType = ContentType.TEXT;
@@ -92,22 +133,22 @@ namespace AasConnect
         {
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
-            string node = "";
+            string source = "";
             string ret = "ERROR";
 
             try
             {
-                node = parsed.SelectToken("node").Value<string>();
+                source = parsed.SelectToken("source").Value<string>();
             }
             catch
             {
 
             }
 
-            if (node != "")
+            if (source != "")
             {
-                childs.Remove(node);
-                Console.WriteLine("Disonnect " + node);
+                childs.Remove(source);
+                Console.WriteLine(countWriteLine++ + " Disonnect " + source);
 
                 ret = "OK";
             }
@@ -118,13 +159,12 @@ namespace AasConnect
             context.Response.SendResponse(ret);
         }
 
-        public static List<string>[] publishRequest = new List<string>[1000];
-        public static List<string>[] publishResponse = new List<string>[1000];
-        public static List<string>[] publishResponseChilds = new List<string>[1000];
-
         public class transmit
         {
-            public string node;
+            public string source;
+            public string destination;
+            public string type;
+            public string encrypt;
             public List<string> publish;
             public transmit()
             {
@@ -132,12 +172,12 @@ namespace AasConnect
             }
         }
 
-        public static void PostPublish(IHttpContext context)
+        public static void PostPublishUp(IHttpContext context)
         {
             string payload = context.Request.Payload;
-            // payload: node, publish
+            // payload: source, publish
 
-            string node = "";
+            string source = "";
             // string publish = "";
 
             try
@@ -145,14 +185,15 @@ namespace AasConnect
                 transmit t1;
                 t1 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(context.Request.Payload);
 
-                node = t1.node;
+                source = t1.source;
                 List<string> publish = t1.publish;
-                Console.WriteLine("PostPublish " + node);
+                Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
 
-                if (node != "" && publish.Count != 0)
+                if (source != "" && publish.Count != 0)
                 {
-                    if (parentDomain != "")
+                    if (parentDomain != "GLOBALROOT")
                     {
+                        // Publish request up to next connect node
                         for (int i = 0; i < publishRequest.Length; i++)
                         {
                             if (publishRequest[i] == null)
@@ -162,17 +203,21 @@ namespace AasConnect
                             }
                         }
                     }
-                    else
+                    if (parentDomain == "GLOBALROOT")
                     {
+                        // copy publish request into response
                         for (int i = 0; i < publishResponse.Length; i++)
                         {
                             if (publishResponse[i] == null)
                             {
                                 publishResponse[i] = publish;
-                                publishResponseChilds[i] = new List<string> { };
-                                foreach (string value in childs)
+                                if (childs.Count != 0)
                                 {
-                                    publishResponseChilds[i].Add(value);
+                                    publishResponseChilds[i] = new List<string> { };
+                                    foreach (string value in childs)
+                                    {
+                                        publishResponseChilds[i].Add(value);
+                                    }
                                 }
                                 break;
                             }
@@ -190,16 +235,19 @@ namespace AasConnect
             {
                 if (publishResponse[i] != null)
                 {
-                    if (publishResponseChilds[i].Contains(node))
+                    if (publishResponseChilds[i] != null)
                     {
-                        foreach (string value in publishResponse[i])
+                        if (publishResponseChilds[i].Contains(source))
                         {
-                            response.Add(value);
-                        }
-                        publishResponseChilds[i].Remove(node);
-                        if (publishResponseChilds[i].Count == 0)
-                        {
-                            publishResponse[i] = null;
+                            foreach (string value in publishResponse[i])
+                            {
+                                response.Add(value);
+                            }
+                            publishResponseChilds[i].Remove(source);
+                            if (publishResponseChilds[i].Count == 0)
+                            {
+                                publishResponse[i] = null;
+                            }
                         }
                     }
                 }
@@ -210,7 +258,7 @@ namespace AasConnect
             {
                 transmit t2 = new transmit
                 {
-                    node = node
+                    source = source
                 };
                 t2.publish = response;
 
@@ -223,53 +271,127 @@ namespace AasConnect
             context.Response.SendResponse(responseJson);
         }
 
-        static bool loop = true;
-        static long count = 1;
+        public static void PostPublishDown(IHttpContext context)
+        {
+            string payload = context.Request.Payload;
+            // payload: source, publish
 
-        static int newData = 0;
+            string source = "";
+            // string publish = "";
+
+            try
+            {
+                transmit t1;
+                t1 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(context.Request.Payload);
+
+                source = t1.source;
+                List<string> publish = t1.publish;
+                Console.WriteLine(countWriteLine++ + " PostPublishDown " + source + " -> " + sourceName);
+
+                if (source != "" && publish.Count != 0 && childs.Count != 0)
+                {
+                    for (int i = 0; i < publishResponse.Length; i++)
+                    {
+                        if (publishResponse[i] == null)
+                        {
+                            publishResponse[i] = publish;
+                            if (childs.Count != 0)
+                            {
+                                publishResponseChilds[i] = new List<string> { };
+                                foreach (string value in childs)
+                                {
+                                    publishResponseChilds[i].Add(value);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            List<string> response = new List<string> { };
+
+            for (int i = 0; i < publishRequest.Length; i++)
+            {
+                if (publishRequest[i] != null)
+                {
+                    foreach (string value in publishRequest[i])
+                    {
+                        response.Add(value);
+                    }
+                    publishRequest[i] = null;
+                }
+            }
+
+            string responseJson = "";
+            if (response.Count != 0)
+            {
+                transmit t2 = new transmit
+                {
+                    source = source
+                };
+                t2.publish = response;
+
+                responseJson = JsonConvert.SerializeObject(t2, Formatting.Indented);
+            }
+
+            context.Response.ContentType = ContentType.JSON;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = responseJson.Length;
+            context.Response.SendResponse(responseJson);
+        }
+
         public static void ThreadLoop()
         {
             while (loop)
             {
-                string publish = "{ \"node\" : \"" + nodeName + "\" , \"count\" : \"" + count + "\" }";
-
-                if (childs.Count == 0)
+                // testing
+                if (test)
                 {
-                    if (++newData == 4)
+                    string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
+                    if (childs.Count == 0)
                     {
-                        newData = 0;
-
-                        for (int j = 0; j < publishRequest.Length; j++)
+                        if (++newData == 4)
                         {
-                            if (publishRequest[j] == null)
+                            newData = 0;
+
+                            for (int j = 0; j < publishRequest.Length; j++)
                             {
-                                publishRequest[j] = new List<string> { };
-                                if (nodeNumber == 1)
+                                if (publishRequest[j] == null)
                                 {
-                                    publishRequest[j].Add(publish);
-                                    break;
-                                }
-                                if (nodeNumber == 2)
-                                {
-                                    publishRequest[j].Add(publish);
-                                    break;
-                                }
-                                if (nodeNumber == 3)
-                                {
-                                    publishRequest[j].Add(publish);
-                                    break;
+                                    publishRequest[j] = new List<string> { };
+                                    if (sourceName == "TEST1")
+                                    {
+                                        publishRequest[j].Add(testPublish);
+                                        break;
+                                    }
+                                    if (sourceName == "TEST2")
+                                    {
+                                        publishRequest[j].Add(testPublish);
+                                        break;
+                                    }
+                                    if (sourceName == "TEST3")
+                                    {
+                                        publishRequest[j].Add(testPublish);
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
+
+                    count += 5;
                 }
 
-                if (parentDomain != "")
+                if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
                 {
-                    publish = "";
+                    string publish = "";
                     transmit t = new transmit
                     {
-                        node = nodeName
+                        source = sourceName
                     };
 
                     for (int j = 0; j < publishRequest.Length; j++)
@@ -286,42 +408,37 @@ namespace AasConnect
 
                     publish = JsonConvert.SerializeObject(t, Formatting.Indented);
 
-                    HttpClient httpClient;
+                    HttpClient httpClient2;
                     if (clientHandler != null)
                     {
-                        httpClient = new HttpClient(clientHandler);
+                        httpClient2 = new HttpClient(clientHandler);
                     }
                     else
                     {
-                        httpClient = new HttpClient();
+                        httpClient2 = new HttpClient();
                     }
 
                     var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json"); ;
 
-                    var result = httpClient.PostAsync("http://" + parentDomain + "/publish", contentJson).Result;
+                    var result = httpClient2.PostAsync(parentDomain + "/publishUp", contentJson).Result;
                     string content = ContentToString(result.Content);
 
                     if (content != "")
                     {
-                        if (content != "")
-                        {
-                            Console.WriteLine(content);
-                        }
-
-                        string node = "";
-                        string response = "";
+                        string source = "";
+                        // string response = "";
 
                         try
                         {
                             transmit t2;
                             t2 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(content);
 
-                            node = t2.node;
+                            source = t2.source;
                             List<string> publish2 = t2.publish;
 
-                            // if (node == nodeName)
+                            // if (source == sourceName)
                             {
-                                Console.WriteLine("RECEIVE " + node + " : " + content);
+                                Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishUp " + source + " : " + content);
                                 if (childs.Count != 0)
                                 {
                                     for (int i = 0; i < publishResponse.Length; i++)
@@ -329,10 +446,13 @@ namespace AasConnect
                                         if (publishResponse[i] == null)
                                         {
                                             publishResponse[i] = publish2;
-                                            publishResponseChilds[i] = new List<string> { };
-                                            foreach (string value in childs)
+                                            if (childs.Count != 0)
                                             {
-                                                publishResponseChilds[i].Add(value);
+                                                publishResponseChilds[i] = new List<string> { };
+                                                foreach (string value in childs)
+                                                {
+                                                    publishResponseChilds[i].Add(value);
+                                                }
                                             }
                                             break;
                                         }
@@ -346,7 +466,118 @@ namespace AasConnect
                     }
                 }
 
-                count += nodeNumber;
+                // pass data down to/from local root childs
+                if (childDomainsCount != 0)
+                {
+                    List<string> response = new List<string> { };
+
+                    transmit t3 = new transmit
+                    {
+                        source = sourceName
+                    };
+
+                    for (int i = 0; i < publishResponse.Length; i++)
+                    {
+                        if (publishResponse[i] != null)
+                        {
+                            foreach (string value in publishResponse[i])
+                            {
+                                response.Add(value);
+                                for (int j = 0; j < childDomainsCount; j++)
+                                {
+                                    if (publishResponseChilds[i] != null)
+                                    {
+                                        if (publishResponseChilds[i].Contains(childDomainsNames[j]))
+                                        {
+                                            publishResponseChilds[i].Remove(childDomainsNames[j]);
+                                            if (publishResponseChilds[i].Count == 0)
+                                            {
+                                                publishResponse[i] = null;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    string responseJson = "";
+                    if (response.Count != 0)
+                    {
+                        t3.publish = response;
+                    }
+                    responseJson = JsonConvert.SerializeObject(t3, Formatting.Indented);
+
+                    HttpClient httpClient;
+                    if (clientHandler != null)
+                    {
+                        httpClient = new HttpClient(clientHandler);
+                    }
+                    else
+                    {
+                        httpClient = new HttpClient();
+                    }
+
+                    for (int i = 0; i < childDomainsCount; i++)
+                    {
+                        var contentJson = new StringContent(responseJson, System.Text.Encoding.UTF8, "application/json"); ;
+
+                        var result = httpClient.PostAsync(childDomains[i] + "/publishDown", contentJson).Result;
+                        string content = ContentToString(result.Content);
+
+                        if (content != "")
+                        {
+                            try
+                            {
+                                transmit t1;
+                                t1 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(content);
+
+                                string source = t1.source;
+                                List<string> publish = t1.publish;
+                                Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source + " : " + content);
+
+                                if (source != "" && publish.Count != 0)
+                                {
+                                    if (parentDomain != "GLOBALROOT")
+                                    {
+                                        // Store publish requests
+                                        for (int j = 0; j < publishRequest.Length; j++)
+                                        {
+                                            if (publishRequest[j] == null)
+                                            {
+                                                publishRequest[j] = publish;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (parentDomain == "GLOBALROOT")
+                                    {
+                                        // copy publish request into response
+                                        for (int j = 0; j < publishResponse.Length; j++)
+                                        {
+                                            if (publishResponse[j] == null)
+                                            {
+                                                publishResponse[j] = publish;
+                                                if (childs.Count != 0)
+                                                {
+                                                    publishResponseChilds[j] = new List<string> { };
+                                                    foreach (string value in childs)
+                                                    {
+                                                        publishResponseChilds[j].Add(value);
+                                                    }
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                            }
+                        }
+                    }
+                }
 
                 Thread.Sleep(500);
             }
@@ -358,10 +589,26 @@ namespace AasConnect
             return readAsStringAsync.Result;
         }
 
-        public static int nodeNumber = 0;
-        public static string nodeName = "";
+        static List<string> childs = new List<string> { };
+
+        public static List<string>[] publishRequest = new List<string>[1000];
+        public static List<string>[] publishResponse = new List<string>[1000];
+        public static List<string>[] publishResponseChilds = new List<string>[1000];
+
+        static bool loop = true;
+        static long count = 1;
+        static long countWriteLine = 0;
+
+        static bool test = true;
+        static int newData = 0;
+
+        public static string sourceName = "";
         public static string domainName = "";
         public static string parentDomain = "";
+        public static string[] childDomains = new string[100];
+        public static string[] childDomainsNames = new string[100];
+        public static int childDomainsCount = 0;
+
         public static WebProxy proxy = null;
         public static HttpClientHandler clientHandler = null;
 
@@ -387,7 +634,7 @@ namespace AasConnect
 
             // default command line options
             bool debugwait = false;
-            string nodeFile = "NODE.DAT";
+            string sourceFile = "";
             string proxyFile = "";
             Boolean help = false;
 
@@ -398,7 +645,7 @@ namespace AasConnect
 
                 if (x == "-node")
                 {
-                    nodeFile = args[i + 1];
+                    sourceFile = args[i + 1];
                     Console.WriteLine(args[i] + " " + args[i + 1]);
                     i += 2;
                     continue;
@@ -429,10 +676,12 @@ namespace AasConnect
 
             if (help)
             {
-                Console.WriteLine("-node Name of Nodefile:\n" + 
-                                        "   Line1 = Node#, L2 = Node name,\n" + 
-                                        "   L3 = Domainname,\n" + 
-                                        "   L4 = Parent Domain");
+                Console.WriteLine("-node Name of node file:\n" + 
+                                        "   Line1 = SourceName,\n" + 
+                                        "   L2 = Domainname,\n" +
+                                        "   L3 = ParentDomain or GLOBALROOT or LOCALROOT,\n" +
+                                        "   L4* = ChildDomains to be called from above"
+                                  );
                 Console.WriteLine("-debugwait = wait for Debugger to attach");
                 Console.WriteLine("Press ENTER");
                 Console.ReadLine();
@@ -456,6 +705,13 @@ namespace AasConnect
 
             if (proxyFile != "")
             {
+                if (!File.Exists(proxyFile))
+                {
+                    Console.WriteLine(proxyFile + " not found!");
+                    Console.ReadLine();
+                    return;
+                }
+
                 try
                 {
                     using (StreamReader sr = new StreamReader(proxyFile))
@@ -488,51 +744,55 @@ namespace AasConnect
                 }
             };
 
+            if (!File.Exists(sourceFile))
+            {
+                Console.WriteLine(sourceFile + " not found!");
+                Console.ReadLine();
+                return;
+            }
+
             try
             {
-                using (StreamReader sr = new StreamReader(nodeFile))
+                using (StreamReader sr = new StreamReader(sourceFile))
                 {
-                    nodeNumber = Convert.ToInt32(sr.ReadLine());
-                    nodeName = sr.ReadLine();
+                    // sourceNumber = Convert.ToInt32(sr.ReadLine());
+                    sourceName = sr.ReadLine();
                     domainName = sr.ReadLine();
                     parentDomain = sr.ReadLine();
+
+                    string localChild = "";
+                    do
+                    {
+                        localChild = sr.ReadLine();
+                        if (localChild != "")
+                        {
+                            childDomains[childDomainsCount++] = localChild;
+                        }
+                    }
+                    while (localChild != "");
                 }
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
-                Console.WriteLine(nodeFile + " not found!");
+                Console.WriteLine(sourceFile + " not found!");
                 Console.ReadLine();
                 return;
             }
 
-            string[] split = domainName.Split(new Char[] { ':' });
+            bool https = false;
+            string[] split1 = domainName.Split(new Char[] { '/' });
+            if (split1[0].ToLower() == "https:")
+            {
+                https = true;
+            }
+            string[] split2 = split1[2].Split(new Char[] { ':' });
             var serverSettings = new ServerSettings
             {
-                Host = split[0],
-                Port = split[1]
+                Host = split2[0],
+                Port = split2[1],
+                UseHttps = https
             };
-
-            int j = 0;
-            /*
-            while (j < publishRequest.Length)
-            {
-                publishRequest[j] = new List<string> { };
-                j++;
-            }
-            j = 0;
-            while (j < publishResponse.Length)
-            {
-                publishResponse[j] = new List<string> { };
-                j++;
-            }
-            j = 0;
-            while (j < publishResponseChilds.Length)
-            {
-                publishResponseChilds[j] = new List<string> { };
-                j++;
-            }
-            */
 
             Console.WriteLine("Waiting for client on " + domainName);
 
@@ -549,19 +809,35 @@ namespace AasConnect
                 httpClient = new HttpClient();
             }
 
-            string payload = "{ \"node\" : \"" + nodeName + "\" }";
+            string payload = "{ \"source\" : \"" + sourceName + "\" }";
             var contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
 
-            if (parentDomain != "")
+            if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
             {
                 try
                 {
-                    var result = httpClient.PostAsync("http://" + parentDomain + "/connect", contentJson).Result;
+                    var result = httpClient.PostAsync(parentDomain + "/connect", contentJson).Result;
                     string content = ContentToString(result.Content);
                 }
                 catch
                 {
                     Console.WriteLine("Can not /connect");
+                }
+            }
+
+            for (i = 0; i < childDomainsCount; i++)
+            {
+                payload = "{ \"source\" : \"" + sourceName + "\" }";
+                contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+
+                var result = httpClient.PostAsync(childDomains[i] + "/connectDown", contentJson).Result;
+                string content = ContentToString(result.Content);
+
+                if (content != "")
+                {
+                    Console.WriteLine("ConnectDown " + childDomains[i] + " : " + content);
+                    childDomainsNames[i] = content;
+                    childs.Add(content);
                 }
             }
 
@@ -587,12 +863,12 @@ namespace AasConnect
 
             loop = false;
 
-            if (parentDomain != "")
+            if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
             {
                 try
                 {
                     contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
-                    httpClient.PostAsync("http://" + parentDomain + "/disconnect", contentJson).Wait();
+                    httpClient.PostAsync(parentDomain + "/disconnect", contentJson).Wait();
                 }
                 catch
                 {

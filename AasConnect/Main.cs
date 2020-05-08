@@ -420,8 +420,16 @@ namespace AasConnect
 
                     var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json"); ;
 
-                    var result = httpClient2.PostAsync(parentDomain + "/publishUp", contentJson).Result;
-                    string content = ContentToString(result.Content);
+                    string content = "";
+                    try
+                    {
+                        var result = httpClient2.PostAsync(parentDomain + "/publishUp", contentJson).Result;
+                        content = ContentToString(result.Content);
+                    }
+                    catch
+                    {
+
+                    }
 
                     if (content != "")
                     {
@@ -509,6 +517,8 @@ namespace AasConnect
                     responseJson = JsonConvert.SerializeObject(t3, Formatting.Indented);
 
                     HttpClient httpClient;
+                    httpClient = new HttpClient();
+                    /*
                     if (clientHandler != null)
                     {
                         httpClient = new HttpClient(clientHandler);
@@ -517,13 +527,22 @@ namespace AasConnect
                     {
                         httpClient = new HttpClient();
                     }
+                    */
 
                     for (int i = 0; i < childDomainsCount; i++)
                     {
                         var contentJson = new StringContent(responseJson, System.Text.Encoding.UTF8, "application/json"); ;
+                        
+                        string content = "";
+                        try
+                        {
+                            var result = httpClient.PostAsync(childDomains[i] + "/publishDown", contentJson).Result;
+                            content = ContentToString(result.Content);
+                        }
+                        catch
+                        {
 
-                        var result = httpClient.PostAsync(childDomains[i] + "/publishDown", contentJson).Result;
-                        string content = ContentToString(result.Content);
+                        }
 
                         if (content != "")
                         {
@@ -534,7 +553,8 @@ namespace AasConnect
 
                                 string source = t1.source;
                                 List<string> publish = t1.publish;
-                                Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source + " : " + content);
+                                // Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source + " : " + content);
+                                Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source);
 
                                 if (source != "" && publish.Count != 0)
                                 {
@@ -800,20 +820,20 @@ namespace AasConnect
             rs.Start();
 
             HttpClient httpClient;
-            if (clientHandler != null)
-            {
-                httpClient = new HttpClient(clientHandler);
-            }
-            else
-            {
-                httpClient = new HttpClient();
-            }
-
             string payload = "{ \"source\" : \"" + sourceName + "\" }";
             var contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
 
             if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
             {
+                if (clientHandler != null)
+                {
+                    httpClient = new HttpClient(clientHandler);
+                }
+                else
+                {
+                    httpClient = new HttpClient();
+                }
+
                 try
                 {
                     var result = httpClient.PostAsync(parentDomain + "/connect", contentJson).Result;
@@ -827,11 +847,21 @@ namespace AasConnect
 
             for (i = 0; i < childDomainsCount; i++)
             {
+                httpClient = new HttpClient();
+
                 payload = "{ \"source\" : \"" + sourceName + "\" }";
                 contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
 
-                var result = httpClient.PostAsync(childDomains[i] + "/connectDown", contentJson).Result;
-                string content = ContentToString(result.Content);
+                string content = "";
+                try
+                {
+                    var result = httpClient.PostAsync(childDomains[i] + "/connectDown", contentJson).Result;
+                    content = ContentToString(result.Content);
+                }
+                catch
+                {
+
+                }
 
                 if (content != "")
                 {
@@ -865,6 +895,15 @@ namespace AasConnect
 
             if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
             {
+                if (clientHandler != null)
+                {
+                    httpClient = new HttpClient(clientHandler);
+                }
+                else
+                {
+                    httpClient = new HttpClient();
+                }
+
                 try
                 {
                     contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");

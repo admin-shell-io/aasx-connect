@@ -36,6 +36,13 @@ namespace AasConnect
                 return context;
             }
 
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.GET, PathInfo = "^/directory(/|)$")]
+            public IHttpContext EvalGetDirectory(IHttpContext context)
+            {
+                GetDirectory(context);
+                return context;
+            }
+
             [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/connectDown(/|)$")]
             public IHttpContext EvalPostConnectDown(IHttpContext context)
             {
@@ -65,31 +72,46 @@ namespace AasConnect
             }
         }
 
+
+        public class connectParameter
+        {
+            public string source;
+            public List<string> aasList;
+            public connectParameter()
+            {
+                aasList = new List<string> { };
+            }
+        }
+
         public static void PostConnect(IHttpContext context)
         {
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
-            string source = "";
+            connectParameter cp = new connectParameter();
             string ret = "ERROR";
 
             try
             {
-                source = parsed.SelectToken("source").Value<string>();
+                cp = Newtonsoft.Json.JsonConvert.DeserializeObject<connectParameter>(context.Request.Payload);
             }
             catch
             {
-
             }
 
-            if (source != "")
+            if (cp.source != "")
             {
                 string connected = "";
                 foreach (string value in childs)
                 {
                     connected += value + " ";
                 }
-                childs.Add(source);
-                Console.WriteLine(countWriteLine++ + " Connect new: " + source + ", already connected: " + connected);
+                childs.Add(cp.source);
+                Console.WriteLine(countWriteLine++ + " Connect new: " + cp.source + ", already connected: " + connected);
+
+                foreach (string s in cp.aasList)
+                {
+                    aasDirectory.Add(cp.source + " : " + s);
+                }
 
                 ret = "OK";
             }
@@ -98,6 +120,19 @@ namespace AasConnect
             context.Response.ContentEncoding = Encoding.UTF8;
             context.Response.ContentLength64 = ret.Length;
             context.Response.SendResponse(ret);
+        }
+
+        public static void GetDirectory(IHttpContext context)
+        {
+            // string payload = context.Request.Payload;
+            // var parsed = JObject.Parse(payload);
+
+            string responseJson = JsonConvert.SerializeObject(aasDirectory, Formatting.Indented);
+
+            context.Response.ContentType = ContentType.JSON;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = responseJson.Length;
+            context.Response.SendResponse(responseJson);
         }
 
         public static void PostConnectDown(IHttpContext context)
@@ -588,6 +623,8 @@ namespace AasConnect
             var readAsStringAsync = httpContent.ReadAsStringAsync();
             return readAsStringAsync.Result;
         }
+
+        static List<string> aasDirectory = new List<string> { };
 
         static List<string> childs = new List<string> { };
 

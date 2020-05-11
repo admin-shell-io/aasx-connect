@@ -72,46 +72,32 @@ namespace AasConnect
             }
         }
 
-
-        public class connectParameter
-        {
-            public string source;
-            public List<string> aasList;
-            public connectParameter()
-            {
-                aasList = new List<string> { };
-            }
-        }
-
-        public static void PostConnect(IHttpContext context)
+         public static void PostConnect(IHttpContext context)
         {
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
-            connectParameter cp = new connectParameter();
+            string source = "";
+
             string ret = "ERROR";
 
             try
             {
-                cp = Newtonsoft.Json.JsonConvert.DeserializeObject<connectParameter>(context.Request.Payload);
+                source = parsed.SelectToken("source").Value<string>();
             }
             catch
             {
+
             }
 
-            if (cp.source != "")
+            if (source != "")
             {
                 string connected = "";
                 foreach (string value in childs)
                 {
                     connected += value + " ";
                 }
-                childs.Add(cp.source);
-                Console.WriteLine(countWriteLine++ + " Connect new: " + cp.source + ", already connected: " + connected);
-
-                foreach (string s in cp.aasList)
-                {
-                    aasDirectory.Add(cp.source + " : " + s);
-                }
+                childs.Add(source);
+                Console.WriteLine(countWriteLine++ + " Connect new: " + source + ", already connected: " + connected);
 
                 ret = "OK";
             }
@@ -240,21 +226,37 @@ namespace AasConnect
                     }
                     if (parentDomain == "GLOBALROOT")
                     {
-                        // copy publish request into response
-                        for (int i = 0; i < publishResponse.Length; i++)
+                        if (t1.type == "directory")
                         {
-                            if (publishResponse[i] == null)
+                            aasDirectoryParameters adp = new aasDirectoryParameters();
+                            
+                            try
                             {
-                                publishResponse[i] = publish;
-                                if (childs.Count != 0)
+                                adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(t1.publish[0]);
+                            }
+                            catch
+                            {
+                            }
+                            aasDirectory.Add(adp);
+                        }
+                        else
+                        {
+                            // copy publish request into response
+                            for (int i = 0; i < publishResponse.Length; i++)
+                            {
+                                if (publishResponse[i] == null)
                                 {
-                                    publishResponseChilds[i] = new List<string> { };
-                                    foreach (string value in childs)
+                                    publishResponse[i] = publish;
+                                    if (childs.Count != 0)
                                     {
-                                        publishResponseChilds[i].Add(value);
+                                        publishResponseChilds[i] = new List<string> { };
+                                        foreach (string value in childs)
+                                        {
+                                            publishResponseChilds[i].Add(value);
+                                        }
                                     }
+                                    break;
                                 }
-                                break;
                             }
                         }
                     }
@@ -644,7 +646,24 @@ namespace AasConnect
             return readAsStringAsync.Result;
         }
 
-        static List<string> aasDirectory = new List<string> { };
+        public class aasListParameters
+        {
+            public int index;
+            public string idShort;
+            public string identification;
+            public string fileName;
+        }
+        public class aasDirectoryParameters
+        {
+            public string source;
+            public List<aasListParameters> aasList;
+            public aasDirectoryParameters()
+            {
+                aasList = new List<aasListParameters> { };
+            }
+        }
+
+        static List<aasDirectoryParameters> aasDirectory = new List<aasDirectoryParameters> { };
 
         static List<string> childs = new List<string> { };
 

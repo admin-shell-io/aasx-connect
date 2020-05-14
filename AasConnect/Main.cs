@@ -191,36 +191,37 @@ namespace AasConnect
 
             try
             {
-                List<transmit> tl;
-                tl = Newtonsoft.Json.JsonConvert.DeserializeObject<List<transmit>>(context.Request.Payload);
+                TransmitFrame tf = new TransmitFrame();
+                tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
+                source = tf.source;
 
-                if (tl.Count != 0)
+                if (source != "" && tf.data.Count != 0)
                 {
                     if (parentDomain != "GLOBALROOT")
                     {
                         // Publish request up to next connect node
-                        foreach (transmit t in tl)
+                        foreach (TransmitData td in tf.data)
                         {
-                            publishRequest.Add(t);
+                            publishRequest.Add(td);
                         }
                     }
                     if (parentDomain == "GLOBALROOT")
                     {
-                        foreach (transmit t in tl)
+                        foreach (TransmitData td in tf.data)
                         {
-                            if (t.type == "directory")
+                            if (td.type == "directory")
                             {
                                 aasDirectoryParameters adp = new aasDirectoryParameters();
 
                                 try
                                 {
-                                    adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(t.publish[0]);
+                                    adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(td.publish[0]);
                                 }
                                 catch
                                 {
                                 }
                                 aasDirectory.Add(adp);
-                                tl.Remove(t);
+                                tf.data.Remove(td);
                             }
                         }
                         // copy publish request into response
@@ -228,7 +229,7 @@ namespace AasConnect
                         {
                             if (publishResponse[i] == null)
                             {
-                                publishResponse[i] = tl;
+                                publishResponse[i] = tf.data;
                                 if (childs.Count != 0)
                                 {
                                     publishResponseChilds[i] = new List<string> { };
@@ -243,14 +244,14 @@ namespace AasConnect
                     }
                 }
 
-                // source = t1.source;
-                // Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
+                Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
             }
             catch
             {
             }
 
-            List<transmit> response = new List<transmit> { };
+            TransmitFrame response = new TransmitFrame();
+            response.source = sourceName;
 
             for (int i = 0; i < publishResponse.Length; i++)
             {
@@ -260,9 +261,9 @@ namespace AasConnect
                     {
                         if (publishResponseChilds[i].Contains(source))
                         {
-                            foreach (transmit t in publishResponse[i])
+                            foreach (TransmitData td in publishResponse[i])
                             {
-                                response.Add(t);
+                                response.data.Add(td);
                             }
                             publishResponseChilds[i].Remove(source);
                             if (publishResponseChilds[i].Count == 0)
@@ -275,15 +276,9 @@ namespace AasConnect
             }
 
             string responseJson = "";
-            if (response.Count != 0)
+            if (response.data.Count != 0)
             {
-                transmit t2 = new transmit
-                {
-                    source = source
-                };
-                t2.publish = response;
-
-                responseJson = JsonConvert.SerializeObject(t2, Formatting.Indented);
+                responseJson = JsonConvert.SerializeObject(response, Formatting.Indented);
             }
 
             context.Response.ContentType = ContentType.JSON;
@@ -302,19 +297,19 @@ namespace AasConnect
 
             try
             {
-                transmit t1;
-                t1 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(context.Request.Payload);
+                TransmitFrame tf = new TransmitFrame();
+                tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
+                source = tf.source;
 
-                source = t1.source;
                 Console.WriteLine(countWriteLine++ + " PostPublishDown " + source + " -> " + sourceName);
 
-                if (source != "" && t1.publish.Count != 0 && childs.Count != 0)
+                if (source != "" && tf.data.Count != 0 && childs.Count != 0)
                 {
                     for (int i = 0; i < publishResponse.Length; i++)
                     {
                         if (publishResponse[i] == null)
                         {
-                            publishResponse[i] = t1;
+                            publishResponse[i] = tf.data;
                             if (childs.Count != 0)
                             {
                                 publishResponseChilds[i] = new List<string> { };
@@ -335,7 +330,11 @@ namespace AasConnect
             string responseJson = "";
             if (publishRequest.Count != 0)
             {
-                responseJson = JsonConvert.SerializeObject(publishRequest, Formatting.Indented);
+                TransmitFrame response = new TransmitFrame();
+                response.source = sourceName;
+                response.data = publishRequest;
+
+                responseJson = JsonConvert.SerializeObject(response, Formatting.Indented);
                 publishRequest.Clear();
             }
 
@@ -353,11 +352,9 @@ namespace AasConnect
                 if (test)
                 {
                     string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
-                    transmit t = new transmit
-                    {
-                        source = sourceName,
-                    };
-                    t.publish.Add(testPublish);
+                    TransmitData td = new TransmitData();
+                    td.source = sourceName;
+                    td.publish.Add(testPublish);
 
                     if (childs.Count == 0)
                     {
@@ -366,7 +363,7 @@ namespace AasConnect
                             newData = 0;
                             if (sourceName == "TEST1" || sourceName == "TEST2" || sourceName == "TEST3")
                             {
-                                publishRequest.Add(t);
+                                publishRequest.Add(td);
                             }
                         }
                     }
@@ -376,14 +373,14 @@ namespace AasConnect
 
                 if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
                 {
+                    TransmitFrame tf = new TransmitFrame();
+                    tf.source = sourceName;
+
                     string publish = "";
-                    transmit t = new transmit
-                    {
-                        source = sourceName
-                    };
 
                     if (publishRequest.Count != 0)
                     {
+                        tf.data = publishRequest;
                         publish = JsonConvert.SerializeObject(publishRequest, Formatting.Indented);
                         publishRequest.Clear();
                     }
@@ -418,10 +415,10 @@ namespace AasConnect
 
                         try
                         {
-                            transmit t2;
-                            t2 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(content);
+                            TransmitFrame tf2 = new TransmitFrame();
+                            tf2 = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(content);
 
-                            source = t2.source;
+                            source = tf2.source;
 
                             // if (source == sourceName)
                             {
@@ -432,7 +429,7 @@ namespace AasConnect
                                     {
                                         if (publishResponse[i] == null)
                                         {
-                                            publishResponse[i] = t2;
+                                            publishResponse[i] = tf2.data;
                                             if (childs.Count != 0)
                                             {
                                                 publishResponseChilds[i] = new List<string> { };
@@ -456,13 +453,14 @@ namespace AasConnect
                 // pass data down to/from local root childs
                 if (childDomainsCount != 0)
                 {
-                    List<transmit> response = new List<transmit> { };
+                    TransmitFrame response = new TransmitFrame();
+                    response.source = sourceName;
 
                     for (int i = 0; i < publishResponse.Length; i++)
                     {
                         if (publishResponse[i] != null)
                         {
-                            response.Add(publishResponse[i]);
+                            response.data = publishResponse[i];
                             for (int j = 0; j < childDomainsCount; j++)
                             {
                                 if (publishResponseChilds[i] != null)
@@ -515,16 +513,19 @@ namespace AasConnect
                         {
                             try
                             {
-                                transmit t1;
-                                t1 = Newtonsoft.Json.JsonConvert.DeserializeObject<transmit>(content);
+                                TransmitFrame tf1 = new TransmitFrame();
+                                tf1 = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(content);
 
-                                string source = t1.source;
+                                string source = tf1.source;
                                 // Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source + " : " + content);
                                 Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source);
 
-                                if (t1.publish.Count != 0)
+                                if (tf1.data.Count != 0)
                                 {
-                                    publishRequest.Add(t1);
+                                    foreach (TransmitData td in tf1.data)
+                                    {
+                                        publishRequest.Add(td);
+                                    }
                                     if (parentDomain == "GLOBALROOT")
                                     {
                                         // copy publish request into response
@@ -532,7 +533,7 @@ namespace AasConnect
                                         {
                                             if (publishResponse[j] == null)
                                             {
-                                                publishResponse[j] = t1;
+                                                publishResponse[j] = tf1.data;
                                                 if (childs.Count != 0)
                                                 {
                                                     publishResponseChilds[j] = new List<string> { };
@@ -564,19 +565,28 @@ namespace AasConnect
             return readAsStringAsync.Result;
         }
 
-        public class transmit
+        public class TransmitData
         {
             public string source;
             public string destination;
             public string type;
             public string encrypt;
             public List<string> publish;
-            public transmit()
+            public TransmitData()
             {
                 publish = new List<string> { };
             }
         }
 
+        public class TransmitFrame
+        {
+            public string source;
+            public List<TransmitData> data;
+            public TransmitFrame()
+            {
+                data = new List<TransmitData> { };
+            }
+        }
         public class aasListParameters
         {
             public int index;
@@ -598,8 +608,8 @@ namespace AasConnect
 
         static List<string> childs = new List<string> { };
 
-        public static List<transmit> publishRequest = new List<transmit> { };
-        public static List<transmit>[] publishResponse = new List<transmit>[1000];
+        public static List<TransmitData> publishRequest = new List<TransmitData> { };
+        public static List<TransmitData>[] publishResponse = new List<TransmitData>[1000];
         public static List<string>[] publishResponseChilds = new List<string>[1000];
 
         static bool loop = true;

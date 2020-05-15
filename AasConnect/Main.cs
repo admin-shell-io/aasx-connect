@@ -381,7 +381,7 @@ namespace AasConnect
                     if (publishRequest.Count != 0)
                     {
                         tf.data = publishRequest;
-                        publish = JsonConvert.SerializeObject(publishRequest, Formatting.Indented);
+                        publish = JsonConvert.SerializeObject(tf, Formatting.Indented);
                         publishRequest.Clear();
                     }
 

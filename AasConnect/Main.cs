@@ -20,7 +20,7 @@ using System.Reflection;
 using System.Net.Http;
 using System.Threading;
 using System.Runtime.InteropServices;
-// using Jose;
+using Jose;
 
 namespace AasConnect
 {
@@ -40,6 +40,13 @@ namespace AasConnect
             public IHttpContext EvalGetDirectory(IHttpContext context)
             {
                 GetDirectory(context);
+                return context;
+            }
+
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.GET, PathInfo = @"^/getaasx/([^/]+)/(\d+)(/|)$")]
+            public IHttpContext GetAASX2(IHttpContext context)
+            {
+                GetAasx(context);
                 return context;
             }
 
@@ -121,6 +128,60 @@ namespace AasConnect
             context.Response.SendResponse(responseJson);
         }
 
+        public static void GetAasx(IHttpContext context)
+        {
+            string ret = "ERROR";
+
+            if (context.Request.PathParameters.Count == 3)
+            {
+                string path = context.Request.PathInfo;
+                string[] split = path.Split('/');
+                string node = split[2];
+                string aasIndex = split[3];
+
+                TransmitData td = new TransmitData();
+                td.source = sourceName;
+                td.destination = node;
+                td.type = "getaasx";
+                td.extensions = aasIndex;
+
+                // publishRequest.Add(td);
+
+                if (parentDomain != "GLOBALROOT")
+                {
+                    publishRequest.Add(td);
+                }
+                else
+                {
+                    for (int i = 0; i < publishResponse.Length; i++)
+                    {
+                        if (publishResponse[i] == null)
+                        {
+                            publishResponse[i] = new List<TransmitData> { };
+                            publishResponse[i].Add(td);
+                            if (childs.Count != 0)
+                            {
+                                publishResponseChilds[i] = new List<string> { };
+                                foreach (string value in childs)
+                                {
+                                    publishResponseChilds[i].Add(value);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
+
+                ret = "Downloaded .AASX from node " + node + " at index " + aasIndex + " will be stored in user download directory!";
+            }
+
+            context.Response.ContentType = ContentType.TEXT;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = ret.Length;
+            context.Response.SendResponse(ret);
+        }
+
         public static void PostConnectDown(IHttpContext context)
         {
             string payload = context.Request.Payload;
@@ -180,6 +241,8 @@ namespace AasConnect
             context.Response.SendResponse(ret);
         }
 
+        public static string secretString = "Industrie4.0-Asset-Administration-Shell";
+
         public static void PostPublishUp(IHttpContext context)
         {
             string payload = context.Request.Payload;
@@ -197,48 +260,67 @@ namespace AasConnect
 
                 if (source != "" && tf.data.Count != 0)
                 {
-                    if (parentDomain != "GLOBALROOT")
+                    foreach (TransmitData td in tf.data)
                     {
-                        // Publish request up to next connect node
-                        foreach (TransmitData td in tf.data)
+                        if (td.type == "getaasxFile" && td.destination == sourceName)
                         {
-                            publishRequest.Add(td);
-                        }
-                    }
-                    if (parentDomain == "GLOBALROOT")
-                    {
-                        foreach (TransmitData td in tf.data)
-                        {
-                            if (td.type == "directory")
-                            {
-                                aasDirectoryParameters adp = new aasDirectoryParameters();
+                            var parsed3 = JObject.Parse(td.publish[0]);
 
-                                try
-                                {
-                                    adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(td.publish[0]);
-                                }
-                                catch
-                                {
-                                }
-                                aasDirectory.Add(adp);
-                                tf.data.Remove(td);
-                            }
+                            string fileName = parsed3.SelectToken("fileName").Value<string>();
+                            string fileData = parsed3.SelectToken("fileData").Value<string>();
+
+                            var enc = new System.Text.ASCIIEncoding();
+                            var fileString4 = Jose.JWT.Decode(fileData, enc.GetBytes(secretString), JwsAlgorithm.HS256);
+                            var parsed4 = JObject.Parse(fileString4);
+
+                            string binaryBase64_4 = parsed4.SelectToken("file").Value<string>();
+                            Byte[] fileBytes4 = Convert.FromBase64String(binaryBase64_4);
+
+                            string downloadDir = Environment.GetEnvironmentVariable("USERPROFILE") + @"\" + "Downloads";
+                            Console.WriteLine("Writing file: " + downloadDir + "/" + fileName);
+                            File.WriteAllBytes(downloadDir + "/" + fileName, fileBytes4);
+
+                            tf.data.Remove(td);
                         }
-                        // copy publish request into response
-                        for (int i = 0; i < publishResponse.Length; i++)
+                        else
                         {
-                            if (publishResponse[i] == null)
+                            if (parentDomain != "GLOBALROOT")
                             {
-                                publishResponse[i] = tf.data;
-                                if (childs.Count != 0)
+                                publishRequest.Add(td);
+                            }
+                            if (parentDomain == "GLOBALROOT")
+                            {
+                                if (td.type == "directory")
                                 {
-                                    publishResponseChilds[i] = new List<string> { };
-                                    foreach (string value in childs)
+                                    aasDirectoryParameters adp = new aasDirectoryParameters();
+
+                                    try
                                     {
-                                        publishResponseChilds[i].Add(value);
+                                        adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(td.publish[0]);
+                                    }
+                                    catch
+                                    {
+                                    }
+                                    aasDirectory.Add(adp);
+                                    tf.data.Remove(td);
+                                }
+                                // copy publish request into response
+                                for (int i = 0; i < publishResponse.Length; i++)
+                                {
+                                    if (publishResponse[i] == null)
+                                    {
+                                        publishResponse[i] = tf.data;
+                                        if (childs.Count != 0)
+                                        {
+                                            publishResponseChilds[i] = new List<string> { };
+                                            foreach (string value in childs)
+                                            {
+                                                publishResponseChilds[i].Add(value);
+                                            }
+                                        }
+                                        break;
                                     }
                                 }
-                                break;
                             }
                         }
                     }
@@ -571,6 +653,7 @@ namespace AasConnect
             public string destination;
             public string type;
             public string encrypt;
+            public string extensions;
             public List<string> publish;
             public TransmitData()
             {

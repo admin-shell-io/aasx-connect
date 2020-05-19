@@ -457,7 +457,7 @@ namespace AasConnect
                     TransmitFrame tf = new TransmitFrame();
                     tf.source = sourceName;
 
-                    string publish = "";
+                    string publish = JsonConvert.SerializeObject(tf, Formatting.Indented);
 
                     if (publishRequest.Count != 0)
                     {
@@ -698,7 +698,7 @@ namespace AasConnect
         static long count = 1;
         static long countWriteLine = 0;
 
-        static bool test = true;
+        static bool test = false;
         static int newData = 0;
 
         public static string sourceName = "";

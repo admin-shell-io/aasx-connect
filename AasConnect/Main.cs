@@ -247,7 +247,6 @@ namespace AasConnect
         {
             string payload = context.Request.Payload;
             // payload: source, publish
-            Console.WriteLine("PostPublishUp: " + payload);
 
             string source = "";
             // string publish = "";
@@ -257,6 +256,8 @@ namespace AasConnect
                 TransmitFrame tf = new TransmitFrame();
                 tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
                 source = tf.source;
+
+                Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
 
                 if (source != "" && tf.data.Count != 0)
                 {
@@ -325,8 +326,6 @@ namespace AasConnect
                         }
                     }
                 }
-
-                Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
             }
             catch
             {

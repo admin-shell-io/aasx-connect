@@ -1,0 +1,110 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
+using Newtonsoft.Json;
+using System.Net.Http;
+using System.Net;
+
+namespace TestConnect
+{
+    static class Connect
+    {
+        // TransmitData collects payloads to publish or subscribe
+        // this is all the data put together by one node
+        public class TransmitData
+        {
+            public string source;
+            public string destination;
+            public string type;
+            public string encrypt;
+            public string extensions;
+            public List<string> publish;
+            public TransmitData()
+            {
+                publish = new List<string> { };
+            }
+        }
+
+        // TransmitFrame collects all TransmitData to publish or subscribe
+        // this is the data collected by one node itself together with the data from other nodes forwareded
+        public class TransmitFrame
+        {
+            public string source;
+            public List<TransmitData> data;
+            public TransmitFrame()
+            {
+                data = new List<TransmitData> { };
+            }
+        }
+
+        static string connectDomain = "http://localhost:52000";
+        static string sourceName = "TestConnect"; // e.g. use your unique email address
+        static int count = 0;
+
+        public static string ContentToString(this HttpContent httpContent)
+        {
+            var readAsStringAsync = httpContent.ReadAsStringAsync();
+            return readAsStringAsync.Result;
+        }
+
+        public static void ThreadLoop()
+        {
+            while (true)
+            {
+                // Test data to publish
+                string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
+                count++;
+
+                TransmitData td = new TransmitData();
+                td.source = sourceName; // must be a unique name in the overall node network
+                td.type = "test"; // AASX Server publishes type "submodel"
+                td.publish.Add(testPublish);
+
+                TransmitFrame tf = new TransmitFrame();
+                tf.source = sourceName;
+                tf.data.Add(td);
+
+                string publish = JsonConvert.SerializeObject(tf, Formatting.Indented);
+                Console.WriteLine("Publish data:\n" + publish + "\n");
+
+                var handler = new HttpClientHandler();
+                handler.DefaultProxyCredentials = CredentialCache.DefaultCredentials;
+                var client = new HttpClient(handler);
+
+                string content = "";
+                try
+                {
+                    var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json");
+                    var result = client.PostAsync(connectDomain + "/publish", contentJson).Result;
+                    content = ContentToString(result.Content);
+                }
+                catch
+                {
+                    Console.WriteLine("ERROR: Publish Timeout!\n");
+                }
+
+                if (content != "")
+                {
+                    // Received JSON content as TransmitFrame
+                    Console.WriteLine("Received Subscribe Data:\n" + content + "\n");
+                }
+
+                Thread.Sleep(1000);
+            }
+        }
+
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Connecting to " + connectDomain + "\n");
+
+            // Start 5s thread loop
+            Thread t = new Thread(new ThreadStart(ThreadLoop));
+            t.Start();
+
+            // Wait for CTRL-C
+            Console.WriteLine("Press CTRL-C to STOPP");
+
+            Console.ReadLine();
+        }
+    }
+}

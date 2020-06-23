@@ -29,6 +29,13 @@ namespace AasConnect
         [RestResource]
         public class AuthResource
         {
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/publish(/|)$")]
+            public IHttpContext EvalPostPublish(IHttpContext context)
+            {
+                PostPublish(context);
+                return context;
+            }
+
             [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.POST, PathInfo = "^/connect(/|)$")]
             public IHttpContext EvalPostConnect(IHttpContext context)
             {
@@ -79,7 +86,68 @@ namespace AasConnect
             }
         }
 
-         public static void PostConnect(IHttpContext context)
+        // Just publish, no /connect before needed
+        public static void PostPublish(IHttpContext context)
+        {
+            string source = "";
+            string responseJson = "";
+
+            try
+            {
+                TransmitFrame tf = new TransmitFrame();
+                tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
+                source = tf.source;
+
+                Console.WriteLine(countWriteLine++ + " PostPublish " + source);
+
+                if (!childs.Contains(source))
+                    childs.Add(source);
+
+                responseJson = executeTransmitFrames(tf);
+
+                DateTime now = DateTime.UtcNow;
+                if (!childsTimeStamps.ContainsKey(source))
+                {
+                    childsTimeStamps.Add(source, now);
+                }
+                else
+                {
+                    childsTimeStamps[source] = now;
+                }
+            }
+            catch
+            {
+            }
+
+            context.Response.ContentType = ContentType.JSON;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = responseJson.Length;
+            context.Response.SendResponse(responseJson);
+        }
+
+        public static void checkChildsTimeStamps()
+        {
+            while (true)
+            {
+                foreach (string c in childs)
+                {
+                    if (childsTimeStamps.ContainsKey(c))
+                    {
+                        DateTime now = DateTime.UtcNow;
+                        DateTime last = childsTimeStamps[c];
+                        TimeSpan difference = now.Subtract(last);
+                        if (difference.TotalSeconds > 60)
+                        {
+                            childs.Remove(c);
+                        }
+                    }
+                }
+
+                Thread.Sleep(10000);
+            }
+        }
+
+        public static void PostConnect(IHttpContext context)
         {
             string payload = context.Request.Payload;
             var parsed = JObject.Parse(payload);
@@ -245,11 +313,10 @@ namespace AasConnect
 
         public static void PostPublishUp(IHttpContext context)
         {
-            string payload = context.Request.Payload;
-            // payload: source, publish
-
             string source = "";
-            // string publish = "";
+            string responseJson = "";
+
+            Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
 
             try
             {
@@ -257,78 +324,88 @@ namespace AasConnect
                 tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
                 source = tf.source;
 
-                Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
+                responseJson = executeTransmitFrames(tf);
+            }
+            catch
+            {
+            }
 
-                if (source != "" && tf.data.Count != 0)
+            context.Response.ContentType = ContentType.JSON;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = responseJson.Length;
+            context.Response.SendResponse(responseJson);
+        }
+
+        public static string executeTransmitFrames(TransmitFrame tf)
+        {
+            string source = tf.source;
+
+            if (source != "" && tf.data.Count != 0)
+            {
+                foreach (TransmitData td in tf.data)
                 {
-                    foreach (TransmitData td in tf.data)
+                    if (td.type == "getaasxFile" && td.destination == sourceName)
                     {
-                        if (td.type == "getaasxFile" && td.destination == sourceName)
+                        var parsed3 = JObject.Parse(td.publish[0]);
+
+                        string fileName = parsed3.SelectToken("fileName").Value<string>();
+                        string fileData = parsed3.SelectToken("fileData").Value<string>();
+
+                        var enc = new System.Text.ASCIIEncoding();
+                        var fileString4 = Jose.JWT.Decode(fileData, enc.GetBytes(secretString), JwsAlgorithm.HS256);
+                        var parsed4 = JObject.Parse(fileString4);
+
+                        string binaryBase64_4 = parsed4.SelectToken("file").Value<string>();
+                        Byte[] fileBytes4 = Convert.FromBase64String(binaryBase64_4);
+
+                        string downloadDir = Environment.GetEnvironmentVariable("USERPROFILE") + @"\" + "Downloads";
+                        Console.WriteLine("Writing file: " + downloadDir + "/" + fileName);
+                        File.WriteAllBytes(downloadDir + "/" + fileName, fileBytes4);
+
+                        tf.data.Remove(td);
+                    }
+                    else
+                    {
+                        if (parentDomain != "GLOBALROOT")
                         {
-                            var parsed3 = JObject.Parse(td.publish[0]);
-
-                            string fileName = parsed3.SelectToken("fileName").Value<string>();
-                            string fileData = parsed3.SelectToken("fileData").Value<string>();
-
-                            var enc = new System.Text.ASCIIEncoding();
-                            var fileString4 = Jose.JWT.Decode(fileData, enc.GetBytes(secretString), JwsAlgorithm.HS256);
-                            var parsed4 = JObject.Parse(fileString4);
-
-                            string binaryBase64_4 = parsed4.SelectToken("file").Value<string>();
-                            Byte[] fileBytes4 = Convert.FromBase64String(binaryBase64_4);
-
-                            string downloadDir = Environment.GetEnvironmentVariable("USERPROFILE") + @"\" + "Downloads";
-                            Console.WriteLine("Writing file: " + downloadDir + "/" + fileName);
-                            File.WriteAllBytes(downloadDir + "/" + fileName, fileBytes4);
-
-                            tf.data.Remove(td);
+                            publishRequest.Add(td);
                         }
-                        else
+                        if (parentDomain == "GLOBALROOT")
                         {
-                            if (parentDomain != "GLOBALROOT")
+                            if (td.type == "directory")
                             {
-                                publishRequest.Add(td);
-                            }
-                            if (parentDomain == "GLOBALROOT")
-                            {
-                                if (td.type == "directory")
-                                {
-                                    aasDirectoryParameters adp = new aasDirectoryParameters();
+                                aasDirectoryParameters adp = new aasDirectoryParameters();
 
-                                    try
-                                    {
-                                        adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(td.publish[0]);
-                                    }
-                                    catch
-                                    {
-                                    }
-                                    aasDirectory.Add(adp);
-                                    tf.data.Remove(td);
-                                }
-                                // copy publish request into response
-                                for (int i = 0; i < publishResponse.Length; i++)
+                                try
                                 {
-                                    if (publishResponse[i] == null)
+                                    adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(td.publish[0]);
+                                }
+                                catch
+                                {
+                                }
+                                aasDirectory.Add(adp);
+                                tf.data.Remove(td);
+                            }
+                            // copy publish request into response
+                            for (int i = 0; i < publishResponse.Length; i++)
+                            {
+                                if (publishResponse[i] == null)
+                                {
+                                    publishResponse[i] = tf.data;
+                                    if (childs.Count != 0)
                                     {
-                                        publishResponse[i] = tf.data;
-                                        if (childs.Count != 0)
+                                        publishResponseChilds[i] = new List<string> { };
+                                        foreach (string value in childs)
                                         {
-                                            publishResponseChilds[i] = new List<string> { };
-                                            foreach (string value in childs)
-                                            {
-                                                publishResponseChilds[i].Add(value);
-                                            }
+                                            publishResponseChilds[i].Add(value);
                                         }
-                                        break;
                                     }
+                                    break;
                                 }
                             }
                         }
                     }
                 }
-            }
-            catch
-            {
             }
 
             TransmitFrame response = new TransmitFrame();
@@ -362,10 +439,7 @@ namespace AasConnect
                 responseJson = JsonConvert.SerializeObject(response, Formatting.Indented);
             }
 
-            context.Response.ContentType = ContentType.JSON;
-            context.Response.ContentEncoding = Encoding.UTF8;
-            context.Response.ContentLength64 = responseJson.Length;
-            context.Response.SendResponse(responseJson);
+            return responseJson;
         }
 
         public static void PostPublishDown(IHttpContext context)
@@ -689,6 +763,7 @@ namespace AasConnect
         static List<aasDirectoryParameters> aasDirectory = new List<aasDirectoryParameters> { };
 
         static List<string> childs = new List<string> { };
+        static Dictionary<string, DateTime> childsTimeStamps = new Dictionary<string, DateTime>();
 
         public static List<TransmitData> publishRequest = new List<TransmitData> { };
         public static List<TransmitData>[] publishResponse = new List<TransmitData>[1000];
@@ -952,6 +1027,9 @@ namespace AasConnect
 
             Thread t = new Thread(new ThreadStart(ThreadLoop));
             t.Start();
+
+            Thread t2 = new Thread(new ThreadStart(checkChildsTimeStamps));
+            t2.Start();
 
             Console.WriteLine("Press CTRL-C to STOPP");
             // Console.ReadLine();

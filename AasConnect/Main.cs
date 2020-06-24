@@ -98,8 +98,6 @@ namespace AasConnect
                 tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
                 source = tf.source;
 
-                Console.WriteLine(countWriteLine++ + " PostPublish " + source);
-
                 if (!childs.Contains(source))
                     childs.Add(source);
 
@@ -114,6 +112,8 @@ namespace AasConnect
                 {
                     childsTimeStamps[source] = now;
                 }
+
+                Console.WriteLine(countWriteLine++ + " PostPublish " + source + " " + now);
             }
             catch
             {
@@ -136,9 +136,11 @@ namespace AasConnect
                         DateTime now = DateTime.UtcNow;
                         DateTime last = childsTimeStamps[c];
                         TimeSpan difference = now.Subtract(last);
-                        if (difference.TotalSeconds > 60)
+                        if (difference.TotalSeconds > 20)
                         {
+                            Console.WriteLine(countWriteLine++ + " Remove Child " + c + " " + now + "," + last + "," + difference);
                             childs.Remove(c);
+                            break;
                         }
                     }
                 }

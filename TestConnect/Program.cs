@@ -38,8 +38,8 @@ namespace TestConnect
             }
         }
 
-        static string connectDomain = "http://localhost:52000"; // connect to AAS Connect on localhost
-        // static string connectDomain = http://h2841345.stratoserver.net:52000; // connect to AAS Connect on external strato testserver
+        // static string connectDomain = "http://localhost:52000"; // connect to AAS Connect on localhost
+        static string connectDomain = "http://h2841345.stratoserver.net:52000"; // connect to AAS Connect on external strato testserver
         static string sourceName = "TestConnect"; // e.g. use your unique email address, random will be append below
         
         static int count = 0;
@@ -56,9 +56,12 @@ namespace TestConnect
             while (true)
             {
                 // append 10 character random string to sourceName
-                Byte[] barray = new byte[10];
-                rngCsp.GetBytes(barray);
-                sourceName += "_" + Convert.ToBase64String(barray);
+                if (sourceName == "TestConnect")
+                {
+                    Byte[] barray = new byte[10];
+                    rngCsp.GetBytes(barray);
+                    sourceName += "_" + Convert.ToBase64String(barray);
+                }
 
                 // Test data to publish
                 string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";

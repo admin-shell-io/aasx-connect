@@ -55,14 +55,6 @@ namespace TestConnect
         {
             while (true)
             {
-                // append 10 character random string to sourceName
-                if (sourceName == "TestConnect")
-                {
-                    Byte[] barray = new byte[10];
-                    rngCsp.GetBytes(barray);
-                    sourceName += "_" + Convert.ToBase64String(barray);
-                }
-
                 // Test data to publish
                 string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
                 count++;
@@ -101,7 +93,7 @@ namespace TestConnect
                     Console.WriteLine("Received Subscribe Data:\n" + content + "\n");
                 }
 
-                Thread.Sleep(1000);
+                Thread.Sleep(3000);
             }
         }
 
@@ -109,7 +101,15 @@ namespace TestConnect
         {
             Console.WriteLine("Connecting to " + connectDomain + "\n");
 
-            // Start 5s thread loop
+            // append 10 character random string to sourceName
+            if (sourceName == "TestConnect")
+            {
+                Byte[] barray = new byte[10];
+                rngCsp.GetBytes(barray);
+                sourceName += "_" + Convert.ToBase64String(barray);
+            }
+
+            // Start 3s thread loop
             Thread t = new Thread(new ThreadStart(ThreadLoop));
             t.Start();
 

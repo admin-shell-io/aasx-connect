@@ -4,6 +4,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using System.Net.Http;
 using System.Net;
+using System.Security.Cryptography;
 
 namespace TestConnect
 {
@@ -37,9 +38,12 @@ namespace TestConnect
             }
         }
 
-        static string connectDomain = "http://localhost:52000";
-        static string sourceName = "TestConnect"; // e.g. use your unique email address
+        static string connectDomain = "http://localhost:52000"; // connect to AAS Connect on localhost
+        // static string connectDomain = http://h2841345.stratoserver.net:52000; // connect to AAS Connect on external strato testserver
+        static string sourceName = "TestConnect"; // e.g. use your unique email address, random will be append below
+        
         static int count = 0;
+        static RNGCryptoServiceProvider rngCsp = new RNGCryptoServiceProvider();
 
         public static string ContentToString(this HttpContent httpContent)
         {
@@ -51,6 +55,11 @@ namespace TestConnect
         {
             while (true)
             {
+                // append 10 character random string to sourceName
+                Byte[] barray = new byte[10];
+                rngCsp.GetBytes(barray);
+                sourceName += "_" + Convert.ToBase64String(barray);
+
                 // Test data to publish
                 string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
                 count++;

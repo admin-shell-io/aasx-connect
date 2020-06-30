@@ -528,7 +528,7 @@ namespace AasConnect
                     count += 5;
                 }
 
-                if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
+                if ((parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT") || parentDomain=="CDE")
                 {
                     TransmitFrame tf = new TransmitFrame();
                     tf.source = sourceName;
@@ -542,67 +542,74 @@ namespace AasConnect
                         publishRequest.Clear();
                     }
 
-                    HttpClient httpClient2;
-                    if (clientHandler != null)
-                    {
-                        httpClient2 = new HttpClient(clientHandler);
-                    }
-                    else
-                    {
-                        httpClient2 = new HttpClient();
-                    }
-
-                    var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json"); ;
-
-                    string content = "";
-                    try
-                    {
-                        var result = httpClient2.PostAsync(parentDomain + "/publishUp", contentJson).Result;
-                        content = ContentToString(result.Content);
-                    }
-                    catch
+                    cdeConnect.Publish(publish); //CDE
+                    if (parentDomain != "CDE")
                     {
 
-                    }
+                        HttpClient httpClient2;
+                        if (clientHandler != null)
+                        {
+                            httpClient2 = new HttpClient(clientHandler);
+                        }
+                        else
+                        {
+                            httpClient2 = new HttpClient();
+                        }
 
-                    if (content != "")
-                    {
-                        string source = "";
-                        // string response = "";
+                        var contentJson = new StringContent(publish, System.Text.Encoding.UTF8, "application/json"); ;
 
+                        string content = "";
                         try
                         {
-                            TransmitFrame tf2 = new TransmitFrame();
-                            tf2 = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(content);
+                            var result = httpClient2.PostAsync(parentDomain + "/publishUp", contentJson).Result;
+                            content = ContentToString(result.Content);
+                        }
+                        catch
+                        {
 
-                            source = tf2.source;
+                        }
 
-                            // if (source == sourceName)
+                        if (content != "")
+                        {
+                            string source = "";
+                            // string response = "";
+
+                            try
                             {
-                                Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishUp " + source + " : " + content);
-                                if (childs.Count != 0)
+                                TransmitFrame tf2 = new TransmitFrame();
+                                tf2 = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(content);
+
+                                cdeConnect.Publish(tf2); //CDE
+
+                                source = tf2.source;
+
+                                // if (source == sourceName)
                                 {
-                                    for (int i = 0; i < publishResponse.Length; i++)
+                                    Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishUp " + source + " : " + content);
+                                    if (childs.Count != 0)
                                     {
-                                        if (publishResponse[i] == null)
+                                        for (int i = 0; i < publishResponse.Length; i++)
                                         {
-                                            publishResponse[i] = tf2.data;
-                                            if (childs.Count != 0)
+                                            if (publishResponse[i] == null)
                                             {
-                                                publishResponseChilds[i] = new List<string> { };
-                                                foreach (string value in childs)
+                                                publishResponse[i] = tf2.data;
+                                                if (childs.Count != 0)
                                                 {
-                                                    publishResponseChilds[i].Add(value);
+                                                    publishResponseChilds[i] = new List<string> { };
+                                                    foreach (string value in childs)
+                                                    {
+                                                        publishResponseChilds[i].Add(value);
+                                                    }
                                                 }
+                                                break;
                                             }
-                                            break;
                                         }
                                     }
                                 }
                             }
-                        }
-                        catch
-                        {
+                            catch
+                            {
+                            }
                         }
                     }
                 }
@@ -637,7 +644,7 @@ namespace AasConnect
 
                     string responseJson = "";
                     responseJson = JsonConvert.SerializeObject(response, Formatting.Indented);
-
+                    
                     HttpClient httpClient;
                     httpClient = new HttpClient();
                     /*
@@ -672,6 +679,8 @@ namespace AasConnect
                             {
                                 TransmitFrame tf1 = new TransmitFrame();
                                 tf1 = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(content);
+
+                                cdeConnect.Publish(tf1); //CDE-coming from clients - CDE publish for each client
 
                                 string source = tf1.source;
                                 // Console.WriteLine(countWriteLine++ + " RECEIVE PostPublishDown " + source + " : " + content);
@@ -788,6 +797,10 @@ namespace AasConnect
         public static WebProxy proxy = null;
         public static HttpClientHandler clientHandler = null;
 
+        //C-DEngine parts
+        internal static string cdeScope=null;
+        internal static string cdeRoute = null;
+
         public static void Main(string[] args)
         {
             Console.WriteLine(
@@ -843,6 +856,19 @@ namespace AasConnect
                     continue;
                 }
 
+                if (x =="-cdescope")
+                {
+                    cdeScope = args[i + 1];
+                    i += 2;
+                    continue;
+                }
+                if (x == "-cderoute")
+                {
+                    cdeRoute = args[i + 1];
+                    i += 2;
+                    continue;
+                }
+
                 if (x == "--help")
                 {
                     help = true;
@@ -859,6 +885,8 @@ namespace AasConnect
                                         "   L4* = ChildDomains to be called from above"
                                   );
                 Console.WriteLine("-debugwait = wait for Debugger to attach");
+                Console.WriteLine("-cdescope = a C-DEngine Mesh ScopeID");
+                Console.WriteLine("-cderoute = a list of C-DEngine nodes to connect to (separated with ;)");
                 Console.WriteLine("Press ENTER");
                 Console.ReadLine();
                 return;
@@ -979,7 +1007,7 @@ namespace AasConnect
             string payload = "{ \"source\" : \"" + sourceName + "\" }";
             var contentJson = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
 
-            if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT")
+            if (parentDomain != "GLOBALROOT" && parentDomain != "LOCALROOT" && parentDomain != "CDE")
             {
                 if (clientHandler != null)
                 {
@@ -999,6 +1027,29 @@ namespace AasConnect
                 {
                     Console.WriteLine("Can not /connect");
                 }
+            }
+            if (parentDomain == "CDE" && !string.IsNullOrEmpty(cdeScope))
+            {
+                cdeConnect.StartCDEngine(cdeScope, cdeRoute, (tf) => {
+                    if (!childs.Contains(tf.source))
+                        childs.Add(tf.source);
+                    for (int ii = 0; ii < publishResponse.Length; ii++)
+                    {
+                        if (publishResponse[ii] == null)
+                        {
+                            publishResponse[ii] = tf.data;
+                            if (childs.Count != 0)
+                            {
+                                publishResponseChilds[ii] = new List<string> { };
+                                foreach (string value in childs)
+                                {
+                                    publishResponseChilds[ii].Add(value);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                });
             }
 
             for (i = 0; i < childDomainsCount; i++)

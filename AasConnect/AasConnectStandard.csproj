@@ -19,6 +19,6 @@
     <PackageReference Include="jose-jwt" Version="2.5.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="System.Dynamic.Runtime" Version="4.3.0" />
+    <PackageReference Include="C-DEngine" Version="5.*" />
   </ItemGroup>
-
 </Project>

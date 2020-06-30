@@ -18,4 +18,10 @@
     <ProjectReference Include="..\AasConnect\AasConnectStandard.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="NODE0.DAT">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

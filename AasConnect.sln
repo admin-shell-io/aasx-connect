@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AasConnectWin", "AasConnect
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestConnect", "TestConnect\TestConnect.csproj", "{F3753680-527C-4123-A51B-A085A331628C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConnectClientGETWindows", "ConnectClientGETWindows\ConnectClientGETWindows.csproj", "{C4DA0477-434B-4392-9229-7C9AE038DE66}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{F3753680-527C-4123-A51B-A085A331628C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F3753680-527C-4123-A51B-A085A331628C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F3753680-527C-4123-A51B-A085A331628C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C4DA0477-434B-4392-9229-7C9AE038DE66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4DA0477-434B-4392-9229-7C9AE038DE66}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4DA0477-434B-4392-9229-7C9AE038DE66}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4DA0477-434B-4392-9229-7C9AE038DE66}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

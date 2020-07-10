@@ -5,6 +5,8 @@ using Newtonsoft.Json;
 using System.Net.Http;
 using System.Net;
 using System.Security.Cryptography;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace TestConnect
 {
@@ -39,12 +41,12 @@ namespace TestConnect
         }
 
         // static string connectDomain = "http://localhost:52000"; // connect to AAS Connect on localhost
-        // static string connectDomain = "http://h2841345.stratoserver.net:52000"; // connect to AAS Connect on external strato testserver
-        static string connectDomain = "http://admin-shell-io.com:52000"; // connect to AAS Connect on external strato testserver
+        static string connectDomain = "http://h2841345.stratoserver.net:52000"; // connect to AAS Connect on external strato testserver
         static string sourceName = "TestConnect"; // e.g. use your unique email address, random will be append below
-        
+
         static int count = 0;
         static RNGCryptoServiceProvider rngCsp = new RNGCryptoServiceProvider();
+        static string testRequest = "";
 
         public static string ContentToString(this HttpContent httpContent)
         {
@@ -52,13 +54,21 @@ namespace TestConnect
             return readAsStringAsync.Result;
         }
 
-        public static void ThreadLoop()
+        public static async void ThreadLoop()
         {
             while (true)
             {
                 // Test data to publish
-                string testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
-                count++;
+                string testPublish = "";
+                if (testRequest == "")
+                {
+                    testPublish = "{ \"source\" : \"" + sourceName + "\" , \"count\" : \"" + count + "\" }";
+                    count++;
+                }
+                else
+                {
+                    testPublish = await getTestData(testRequest);
+                }
 
                 TransmitData td = new TransmitData();
                 td.source = sourceName; // must be a unique name in the overall node network
@@ -100,15 +110,35 @@ namespace TestConnect
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Connecting to " + connectDomain + "\n");
-
-            // append 10 character random string to sourceName
-            if (sourceName == "TestConnect")
+            if (!File.Exists("REQUEST.DAT"))
             {
-                Byte[] barray = new byte[10];
-                rngCsp.GetBytes(barray);
-                sourceName += "_" + Convert.ToBase64String(barray);
+                Console.WriteLine("REQUEST.DAT not found!");
+                Console.ReadLine();
+                return;
             }
+
+            try
+            {
+                using (StreamReader sr = new StreamReader("REQUEST.DAT"))
+                {
+                    connectDomain = sr.ReadLine();
+                    sourceName = sr.ReadLine();
+                    testRequest = sr.ReadLine();
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Console.WriteLine("REQUEST.DAT can not be read!");
+                Console.ReadLine();
+                return;
+            }
+
+            Console.WriteLine("connectDomain: " + connectDomain);
+            Console.WriteLine("nodeName: " + sourceName);
+            Console.WriteLine("testRequest: " + testRequest);
+            Console.WriteLine("Press key to continue!");
+            Console.ReadLine();
 
             // Start 3s thread loop
             Thread t = new Thread(new ThreadStart(ThreadLoop));
@@ -118,6 +148,27 @@ namespace TestConnect
             Console.WriteLine("Press CTRL-C to STOPP");
 
             Console.ReadLine();
+        }
+
+        static async Task<string> getTestData(string request)
+        {
+            var handler = new HttpClientHandler();
+            handler.DefaultProxyCredentials = CredentialCache.DefaultCredentials;
+            var client = new HttpClient(handler);
+
+            string content = "";
+            try
+            {
+                // var result = client.GetAsync(request).Wait();
+                // content = result + "";
+                content = await client.GetStringAsync(request);
+            }
+            catch
+            {
+                Console.WriteLine("ERROR: Publish Timeout!\n");
+            }
+
+            return content;
         }
     }
 }

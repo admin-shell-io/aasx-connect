@@ -318,13 +318,13 @@ namespace AasConnect
             string source = "";
             string responseJson = "";
 
-            Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
-
             try
             {
                 TransmitFrame tf = new TransmitFrame();
                 tf = Newtonsoft.Json.JsonConvert.DeserializeObject<TransmitFrame>(context.Request.Payload);
                 source = tf.source;
+
+                Console.WriteLine(countWriteLine++ + " PostPublishUp " + source);
 
                 responseJson = executeTransmitFrames(tf);
             }

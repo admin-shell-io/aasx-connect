@@ -6,6 +6,11 @@ using System.Net.Http;
 using System.Net;
 using System.Security.Cryptography;
 
+/*
+Copyright(c) 2020 PHOENIX CONTACT GmbH & Co. KG <opensource@phoenixcontact.com>, author: Andreas Orzelski
+AASX Connect is licensed under the Apache License 2.0 (Apache-2.0, see below).
+*/
+
 namespace TestConnect
 {
     static class Connect

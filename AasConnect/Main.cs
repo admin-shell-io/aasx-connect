@@ -22,6 +22,11 @@ using System.Threading;
 using System.Runtime.InteropServices;
 using Jose;
 
+/*
+Copyright(c) 2020 PHOENIX CONTACT GmbH & Co. KG <opensource@phoenixcontact.com>, author: Andreas Orzelski
+AASX Connect is licensed under the Apache License 2.0 (Apache-2.0, see below).
+*/
+
 namespace AasConnect
 {
     static public class Aas

@@ -10,3 +10,4 @@ The REST communication is company proxy/firewall friendly. It uses only an insid
 A ready to use connect is running on http://admin-shell-io.com:52000. AASX Server connects to this by the option "--connect".
 This is used for I40 Language and for Publish/Subscribe in AASX Server.
 
+Please take a look on TestConnect and let this run to better understand AASX connect.

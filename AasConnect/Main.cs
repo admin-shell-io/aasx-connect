@@ -391,7 +391,7 @@ namespace AasConnect
                                 {
                                 }
                                 aasDirectory.Add(adp);
-                                tf.data.Remove(td);
+                                //// tf.data.Remove(td);
                             }
                             // copy publish request into response
                             for (int i = 0; i < publishResponse.Length; i++)

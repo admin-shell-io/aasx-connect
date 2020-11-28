@@ -4,7 +4,7 @@ AASX Connect is licensed under the Apache License 2.0 (Apache-2.0, see below).
 
 --------------------------------------------------------------------------------------------------------------
 
-The components below are used in AASX Server.
+The components below are used in AASX Connect.
 The related licenses are listed for information purposes only.
 
 The Newtonsoft.JSON serialization is licensed under the MIT License (MIT) (see below)

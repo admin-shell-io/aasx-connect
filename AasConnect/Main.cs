@@ -195,12 +195,38 @@ namespace AasConnect
             // string payload = context.Request.Payload;
             // var parsed = JObject.Parse(payload);
 
+            /*
             string responseJson = JsonConvert.SerializeObject(aasDirectory, Formatting.Indented);
 
             context.Response.ContentType = ContentType.JSON;
             context.Response.ContentEncoding = Encoding.UTF8;
             context.Response.ContentLength64 = responseJson.Length;
             context.Response.SendResponse(responseJson);
+            */
+
+            context.Response.Headers.Remove("Refresh");
+            context.Response.Headers.Add("Refresh", "5");
+
+            string text = DateTime.UtcNow + "<br><br>";
+
+            text += "<table>";
+            foreach (string c in childs)
+            {
+                text += "<tr>";
+                text += "<td>" + c + "</td>";
+                if (childsTimeStamps.ContainsKey(c))
+                {
+                    DateTime last = childsTimeStamps[c];
+                    text += "<td>" + last + "</td>";
+                }
+                text += "</tr>";
+            }
+            text += "</table>";
+
+            context.Response.ContentType = ContentType.HTML;
+            context.Response.ContentEncoding = Encoding.UTF8;
+            context.Response.ContentLength64 = text.Length;
+            context.Response.SendResponse(text);
         }
 
         public static void GetAasx(IHttpContext context)

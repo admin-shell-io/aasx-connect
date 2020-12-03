@@ -207,9 +207,18 @@ namespace AasConnect
             context.Response.Headers.Remove("Refresh");
             context.Response.Headers.Add("Refresh", "5");
 
-            string text = DateTime.UtcNow + "<br><br>";
+            string text = "AasxRegistry " + DateTime.UtcNow + "<br><br>";
 
-            text += "<table>";
+            text += "<table border=2 cellpadding=4>";
+
+            text += "<thead style = \"background-color:lightgrey;\">";
+            text += "<tr>";
+            text += "<th>" + "ServerName" + "</th>";
+            text += "<th>" + "LastConnect" + "</th>";
+            text += "</tr>";
+            text += "</thead>";
+
+            text += "<tbody>";
             foreach (string c in childs)
             {
                 text += "<tr>";
@@ -221,6 +230,7 @@ namespace AasConnect
                 }
                 text += "</tr>";
             }
+            text += "</tbody>";
             text += "</table>";
 
             context.Response.ContentType = ContentType.HTML;

@@ -207,7 +207,7 @@ namespace AasConnect
             context.Response.Headers.Remove("Refresh");
             context.Response.Headers.Add("Refresh", "5");
 
-            string text = "AasxRegistry " + DateTime.UtcNow + "<br><br>";
+            string text = "AasxConnect " + DateTime.UtcNow + "<br><br>";
 
             text += "<table border=2 cellpadding=4>";
 

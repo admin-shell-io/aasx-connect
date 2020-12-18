@@ -21,6 +21,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Runtime.InteropServices;
 using Jose;
+using System.Collections.Concurrent;
 
 /*
 Copyright(c) 2020 PHOENIX CONTACT GmbH & Co. KG <opensource@phoenixcontact.com>, author: Andreas Orzelski
@@ -134,21 +135,25 @@ namespace AasConnect
         {
             while (true)
             {
+                DateTime now = DateTime.UtcNow;
+                ConcurrentBag<string> remainingChilds = new ConcurrentBag<string>();
                 foreach (string c in childs)
                 {
+                    bool remains = true;
                     if (childsTimeStamps.ContainsKey(c))
                     {
-                        DateTime now = DateTime.UtcNow;
                         DateTime last = childsTimeStamps[c];
                         TimeSpan difference = now.Subtract(last);
                         if (difference.TotalSeconds > 20)
                         {
                             Console.WriteLine(countWriteLine++ + " Remove Child " + c + " " + now + "," + last + "," + difference);
-                            childs.Remove(c);
-                            break;
+                            remains = false;
                         }
                     }
+                    if (remains)
+                        remainingChilds.Add(c);
                 }
+                childs = remainingChilds;
 
                 Thread.Sleep(10000);
             }
@@ -340,7 +345,7 @@ namespace AasConnect
 
             if (source != "")
             {
-                childs.Remove(source);
+                // childs.Remove(source);
                 Console.WriteLine(countWriteLine++ + " Disonnect " + source);
 
                 ret = "OK";
@@ -415,6 +420,10 @@ namespace AasConnect
                         }
                         if (parentDomain == "GLOBALROOT")
                         {
+                            if (td.type == "directory")
+                            {
+                                Console.WriteLine("Received directory from " + td.source + " for " + td.destination);
+                            }
                             /*
                             if (td.type == "directory")
                             {
@@ -805,9 +814,11 @@ namespace AasConnect
             }
         }
 
-        static List<aasDirectoryParameters> aasDirectory = new List<aasDirectoryParameters> { };
+        // static List<aasDirectoryParameters> aasDirectory = new List<aasDirectoryParameters> { };
+        static ConcurrentBag<aasDirectoryParameters> aasDirectory = new ConcurrentBag<aasDirectoryParameters> { };
 
-        static List<string> childs = new List<string> { };
+        // static List<string> childs = new List<string> { };
+        static ConcurrentBag<string> childs = new ConcurrentBag<string> { };
         static Dictionary<string, DateTime> childsTimeStamps = new Dictionary<string, DateTime>();
 
         public static List<TransmitData> publishRequest = new List<TransmitData> { };

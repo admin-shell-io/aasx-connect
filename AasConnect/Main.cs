@@ -141,6 +141,7 @@ namespace AasConnect
             while (true)
             {
                 DateTime now = DateTime.UtcNow;
+                List<string> removedChilds = new List<string>();
                 ConcurrentBag<string> remainingChilds = new ConcurrentBag<string>();
                 foreach (string c in childs)
                 {
@@ -154,6 +155,7 @@ namespace AasConnect
                             if (difference.TotalSeconds > 20)
                             {
                                 Console.WriteLine(countWriteLine++ + " Remove Child " + c + " " + now + "," + last + "," + difference);
+                                removedChilds.Add(c);
                                 remains = false;
                             }
                         }
@@ -163,7 +165,25 @@ namespace AasConnect
                 }
                 childs = remainingChilds;
 
-                Thread.Sleep(10000);
+                for (int i = 0; i < publishResponse.Length; i++)
+                {
+                    if (publishResponse[i] != null)
+                    {
+                        List<string> loop = new List<string>(publishResponseChilds[i]);
+                        foreach (string c in loop)
+                        {
+                            if (removedChilds.Contains(c))
+                            {
+                                Console.WriteLine("Child " + c + "removed from " + i);
+                                publishResponseChilds[i].Remove(c);
+                                if (publishResponseChilds[i].Count == 0)
+                                    publishResponse[i] = null;
+                            }
+                        }
+                    }
+                }
+
+                Thread.Sleep(30000);
             }
         }
 
@@ -457,7 +477,14 @@ namespace AasConnect
                                 publishResponseChilds[i] = new List<string> { };
                                 foreach (string value in childs)
                                 {
-                                    publishResponseChilds[i].Add(value);
+                                    foreach (TransmitData td in tf.data)
+                                    {
+                                        if (td.destination == "" || td.destination == value)
+                                        {
+                                            if (!publishResponseChilds[i].Contains(value))
+                                                publishResponseChilds[i].Add(value);
+                                        }
+                                    }
                                 }
                             }
                             break;

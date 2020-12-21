@@ -49,6 +49,7 @@ namespace AasConnect
                 return context;
             }
 
+            [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.GET, PathInfo = "^(/|)$")]
             [RestRoute(HttpMethod = Grapevine.Core.Shared.HttpMethod.GET, PathInfo = "^/directory(/|)$")]
             public IHttpContext EvalGetDirectory(IHttpContext context)
             {
@@ -92,6 +93,7 @@ namespace AasConnect
             }
         }
 
+        public static readonly object timeStampLock = new object();
         // Just publish, no /connect before needed
         public static void PostPublish(IHttpContext context)
         {
@@ -110,16 +112,19 @@ namespace AasConnect
                 responseJson = executeTransmitFrames(tf);
 
                 DateTime now = DateTime.UtcNow;
-                if (!childsTimeStamps.ContainsKey(source))
+                lock (timeStampLock)
                 {
-                    childsTimeStamps.Add(source, now);
-                }
-                else
-                {
-                    childsTimeStamps[source] = now;
+                    if (!childsTimeStamps.ContainsKey(source))
+                    {
+                        childsTimeStamps.Add(source, now);
+                    }
+                    else
+                    {
+                        childsTimeStamps[source] = now;
+                    }
                 }
 
-                Console.WriteLine(countWriteLine++ + " PostPublish " + source + " " + now);
+                // Console.WriteLine(countWriteLine++ + " PostPublish " + source + " " + now);
             }
             catch
             {
@@ -140,14 +145,17 @@ namespace AasConnect
                 foreach (string c in childs)
                 {
                     bool remains = true;
-                    if (childsTimeStamps.ContainsKey(c))
+                    lock (timeStampLock)
                     {
-                        DateTime last = childsTimeStamps[c];
-                        TimeSpan difference = now.Subtract(last);
-                        if (difference.TotalSeconds > 20)
+                        if (childsTimeStamps.ContainsKey(c))
                         {
-                            Console.WriteLine(countWriteLine++ + " Remove Child " + c + " " + now + "," + last + "," + difference);
-                            remains = false;
+                            DateTime last = childsTimeStamps[c];
+                            TimeSpan difference = now.Subtract(last);
+                            if (difference.TotalSeconds > 20)
+                            {
+                                Console.WriteLine(countWriteLine++ + " Remove Child " + c + " " + now + "," + last + "," + difference);
+                                remains = false;
+                            }
                         }
                     }
                     if (remains)
@@ -387,13 +395,25 @@ namespace AasConnect
         public static string executeTransmitFrames(TransmitFrame tf)
         {
             string source = tf.source;
+            Console.WriteLine("source: " + source);
 
             if (source != "" && tf.data.Count != 0)
             {
+                Console.WriteLine("tf.data.count " + tf.data.Count);
+
+                countWriteLine++;
+                foreach (TransmitData tdr in tf.data)
+                {
+                    Console.WriteLine("*** RECEIVE " + countWriteLine + " " + source + ": " + tdr.type + " " + tdr.source + " " + tdr.destination);
+                }
+
+                TransmitData fileReceived = null;
                 foreach (TransmitData td in tf.data)
                 {
                     if (td.type == "getaasxFile" && td.destination == sourceName)
                     {
+                        Console.WriteLine("Received AASX from " + td.source + " for " + td.destination);
+
                         var parsed3 = JObject.Parse(td.publish[0]);
 
                         string fileName = parsed3.SelectToken("fileName").Value<string>();
@@ -410,54 +430,57 @@ namespace AasConnect
                         Console.WriteLine("Writing file: " + downloadDir + "/" + fileName);
                         File.WriteAllBytes(downloadDir + "/" + fileName, fileBytes4);
 
-                        tf.data.Remove(td);
+                        fileReceived = td;
+                        break;
                     }
-                    else
-                    {
-                        if (parentDomain != "GLOBALROOT")
-                        {
-                            publishRequest.Add(td);
-                        }
-                        if (parentDomain == "GLOBALROOT")
-                        {
-                            if (td.type == "directory")
-                            {
-                                Console.WriteLine("Received directory from " + td.source + " for " + td.destination);
-                            }
-                            /*
-                            if (td.type == "directory")
-                            {
-                                aasDirectoryParameters adp = new aasDirectoryParameters();
+                }
+                if (fileReceived != null)
+                    tf.data.Remove(fileReceived);
 
-                                try
-                                {
-                                    adp = Newtonsoft.Json.JsonConvert.DeserializeObject<aasDirectoryParameters>(td.publish[0]);
-                                }
-                                catch
-                                {
-                                }
-                                aasDirectory.Add(adp);
-                                //// tf.data.Remove(td);
-                            }
-                            */
-                            // copy publish request into response
-                            for (int i = 0; i < publishResponse.Length; i++)
+                Console.WriteLine("tf.data.count " + tf.data.Count);
+
+                if (parentDomain != "GLOBALROOT")
+                {
+                    foreach (TransmitData td in tf.data)
+                        publishRequest.Add(td);
+                }
+                if (parentDomain == "GLOBALROOT")
+                {
+                    // copy publish request into response
+                    for (int i = 0; i < publishResponse.Length; i++)
+                    {
+                        if (publishResponse[i] == null)
+                        {
+                            publishResponse[i] = tf.data;
+                            if (childs.Count != 0)
                             {
-                                if (publishResponse[i] == null)
+                                publishResponseChilds[i] = new List<string> { };
+                                foreach (string value in childs)
                                 {
-                                    publishResponse[i] = tf.data;
-                                    if (childs.Count != 0)
-                                    {
-                                        publishResponseChilds[i] = new List<string> { };
-                                        foreach (string value in childs)
-                                        {
-                                            publishResponseChilds[i].Add(value);
-                                        }
-                                    }
-                                    break;
+                                    publishResponseChilds[i].Add(value);
                                 }
                             }
+                            break;
                         }
+                    }
+                }
+            }
+
+            // Dump publishResponseChilds
+            for (int i = 0; i < publishResponse.Length; i++)
+            {
+                if (publishResponse[i] != null)
+                {
+                    Console.Write("i " + i + " childs: ");
+                    foreach (string c in publishResponseChilds[i])
+                    {
+                        Console.Write(c + " ");
+                    }
+                    Console.WriteLine();
+
+                    foreach (TransmitData tdr in publishResponse[i])
+                    {
+                        Console.WriteLine("*** DUMP " + i + " " + source + ": " + tdr.type + " " + tdr.source + " " + tdr.destination);
                     }
                 }
             }
@@ -490,6 +513,11 @@ namespace AasConnect
             string responseJson = "";
             if (response.data.Count != 0)
             {
+                countWriteLine++;
+                foreach (TransmitData tdr in response.data)
+                {
+                    Console.WriteLine("*** SEND " + response.data.Count + " " + countWriteLine + " " + source + ": " + tdr.type + " " + tdr.source + " " + tdr.destination);
+                }
                 responseJson = JsonConvert.SerializeObject(response, Formatting.Indented);
             }
 
